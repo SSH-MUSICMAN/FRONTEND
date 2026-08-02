@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Audio Mixing Plugin - Coordinate View</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body { font-family: 'Pretendard', sans-serif; }
+    </style>
+</head>
+<body class="bg-[#0b0f19] text-gray-300 h-screen flex flex-col overflow-hidden select-none">
+
+    <!-- 상단 네비게이션바 -->
+    <header class="h-14 bg-[#111827] border-b border-gray-800 flex items-center justify-between px-4">
+        <div class="flex items-center space-x-3">
+            <span class="text-xs bg-purple-900 text-purple-300 px-2 py-0.5 rounded font-medium">FREE</span>
+            <h1 class="text-white font-semibold text-sm tracking-wide">3D Audio Mixing Plugin</h1>
+        </div>
+        <div class="flex items-center space-x-4 text-xs text-gray-400">
+            <span class="bg-gray-800 px-2.5 py-1 rounded">버전 11</span>
+            <div class="flex items-center space-x-2 text-gray-300">
+                <span class="text-gray-500">48kHz · HMTFP · MDA-3</span>
+                <button id="playBtn" onclick="togglePlay()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-full font-bold flex items-center space-x-1 shadow-lg shadow-blue-900/40 transition">
+                    <span id="playIcon">▶</span> <span id="playText">PLAY</span>
+                </button>
+                <span id="statusText" class="text-xs text-gray-500 font-mono">IDLE</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 작업 영역 -->
+    <main class="flex-1 bg-[#090d16] p-6 flex flex-col justify-between relative overflow-hidden">
+        
+        <!-- 상단 엔진 타이틀 및 경고 메시지 토스트 -->
+        <div class="flex items-center justify-between z-10">
+            <div class="flex items-center space-x-3">
+                <div class="flex space-x-1">
+                    <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+                    <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                </div>
+                <span class="text-xs font-bold tracking-widest text-gray-200">DISTANCE ENGINE</span>
+                <span class="text-[10px] text-gray-500">Spatial Audio · 3D MDA</span>
+            </div>
+
+            <!-- 경고 메시지 토스트 -->
+            <div id="warningToast" class="hidden items-center space-x-2 bg-red-950/80 border border-red-800/80 text-red-300 px-3 py-1 rounded-lg text-xs font-mono animate-bounce shadow-lg shadow-red-950/50">
+                <span id="warningText">⚠️ 무대 경계선을 초과할 수 없습니다!</span>
+            </div>
+
+            <!-- 동적으로 변하는 무대 규격 표시 -->
+            <div class="flex items-center space-x-3 bg-[#111827] px-3 py-1.5 rounded-lg border border-gray-800 text-xs font-mono text-gray-400">
+                <span>STAGE: <strong id="stageSizeDisplay" class="text-blue-400">20m (W) × 10m (D)</strong></span>
+            </div>
+        </div>
+
+        <!-- 중앙 3D 공간 음향 조절 스테이지 영역 -->
+        <div class="relative flex-1 flex items-center justify-center my-4">
+            
+            <!-- 좌측 패널 -->
+            <div class="absolute left-4 top-4 w-64 bg-[#0f172a]/90 backdrop-blur border border-gray-800 rounded-lg p-3 shadow-xl z-25 flex flex-col space-y-3">
+                <!-- 악기 설정 박스 -->
+                <div class="bg-[#111827] rounded p-2.5 border border-gray-800">
+                    <div class="flex items-center justify-between text-xs mb-2">
+                        <div class="flex items-center gap-1.5 flex-1 mr-2">
+                            <span class="text-blue-400">🎤</span>
+                            <input type="text" id="instrumentNameInput" value="Vocal" 
+                                class="w-full bg-[#1f2937] text-white text-xs font-semibold px-2 py-1 rounded border border-gray-700 focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span id="panelDbText" class="text-[10px] text-blue-300 font-mono">0.0 dB</span>
+                            <span class="w-3 h-3 rounded-full bg-green-500 block animate-ping"></span>
+                        </div>
+                    </div>
+
+                    <!-- 좌표 입력 -->
+                    <div class="grid grid-cols-2 gap-2 mb-2 text-[11px] font-mono">
+                        <div class="flex items-center space-x-1 bg-[#1f2937] px-2 py-1 rounded border border-gray-700">
+                            <span class="text-gray-400">X:</span>
+                            <input type="number" id="vocalXInput" value="3.0" step="0.1" class="w-full bg-transparent text-white text-right focus:outline-none">
+                            <span class="text-blue-400 text-[9px]">m</span>
+                        </div>
+                        <div class="flex items-center space-x-1 bg-[#1f2937] px-2 py-1 rounded border border-gray-700">
+                            <span class="text-gray-400">Y:</span>
+                            <input type="number" id="vocalYInput" value="3.0" step="0.1" class="w-full bg-transparent text-white text-right focus:outline-none">
+                            <span class="text-blue-400 text-[9px]">m</span>
+                        </div>
+                    </div>
+
+                    <!-- 볼륨 슬라이더 -->
+                    <div class="pt-1 border-t border-gray-800">
+                        <div class="flex items-center justify-between text-[10px] text-gray-400 mb-1">
+                            <span>VOLUME</span>
+                            <span id="volText" class="font-mono text-blue-400 font-bold">65</span>
+                        </div>
+                        <input type="range" id="volSlider" min="0" max="100" value="65" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    </div>
+                </div>
+
+                <!-- 룸 어쿠스틱 & X/Y 룸 사이즈 설정 패널 -->
+                <div class="bg-[#111827] rounded p-2.5 border border-gray-800 text-[11px] font-mono space-y-2">
+                    <div class="text-gray-300 font-bold flex items-center justify-between">
+                        <span>ROOM DIMENSIONS</span>
+                        <span class="text-[9px] text-purple-400">RECTANGLE</span>
+                    </div>
+                    
+                    <!-- 룸 너비 조절 -->
+                    <div>
+                        <div class="flex items-center justify-between text-[10px] text-gray-400 mb-0.5">
+                            <span>WIDTH (X)</span>
+                            <span id="roomWidthVal" class="text-blue-400">20m</span>
+                        </div>
+                        <input type="range" id="roomWidthSlider" min="10" max="60" value="20" step="1" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    </div>
+
+                    <!-- 룸 깊이 조절 -->
+                    <div>
+                        <div class="flex items-center justify-between text-[10px] text-gray-400 mb-0.5">
+                            <span>DEPTH (Y)</span>
+                            <span id="roomDepthVal" class="text-blue-400">10m</span>
+                        </div>
+                        <input type="range" id="roomDepthSlider" min="5" max="40" value="10" step="1" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    </div>
+
+                    <!-- 리버브 센스 조절 -->
+                    <div class="pt-1 border-t border-gray-800">
+                        <div class="flex items-center justify-between text-[10px] text-gray-400 mb-0.5">
+                            <span>REVERB SEND</span>
+                            <span id="reverbVal" class="text-purple-400">35%</span>
+                        </div>
+                        <input type="range" id="reverbSlider" min="0" max="100" value="35" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3D 뷰포트 -->
+            <div id="stageViewport" class="w-full max-w-4xl h-[450px] bg-[#090d16] border-none rounded-xl relative flex items-center justify-center pl-44 overflow-hidden shadow-2xl cursor-crosshair">
+                
+                <!-- X, Y 성분에 따라 크기와 비율이 실시간으로 변하는 무대 바운더리 박스 -->
+                <div id="roomBoundary" class="absolute border-2 border-blue-500/40 bg-blue-500/[0.02] rounded-lg transition-all duration-100 flex items-center justify-center origin-center" style="width: 500px; height: 300px;">
+                    
+                    <!-- 좌표평면 격자 (Grid) -->
+                    <div class="absolute inset-0 opacity-25 bg-[linear-gradient(to_right,#3b82f6_1px,transparent_1px),linear-gradient(to_bottom,#3b82f6_1px,transparent_1px)] [background-size:30px_30px]"></div>
+                    
+                    <!-- X축 및 Y축 -->
+                    <div class="absolute w-full h-[1px] bg-blue-500/50"></div>
+                    <div class="absolute h-full w-[1px] bg-blue-500/50"></div>
+
+                    <!-- 사분면 레이블 -->
+                    <div class="absolute text-[9px] text-gray-500 font-mono top-1 right-2">+X, +Y</div>
+                    <div class="absolute text-[9px] text-gray-500 font-mono top-1 left-2">-X, +Y</div>
+                    <div class="absolute text-[9px] text-gray-500 font-mono bottom-1 right-2">+X, -Y</div>
+                    <div class="absolute text-[9px] text-gray-500 font-mono bottom-1 left-2">-X, -Y</div>
+                    <div class="absolute text-[9px] text-blue-400 font-mono top-1/2 left-1/2 translate-x-1 translate-y-1">(0,0)</div>
+                </div>
+                
+                <!-- SVG 연결선 및 방위각 가이드라인 -->
+                <svg class="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
+                    <line id="connectLine" x1="0" y1="0" x2="0" y2="0" stroke="rgba(56, 189, 248, 0.4)" stroke-width="2" stroke-dasharray="4" />
+                </svg>
+
+                <!-- 고정된 YOU 위치 (0,0) -->
+                <div id="youNode" class="absolute w-14 h-14 rounded-full bg-blue-600/30 border border-blue-400 flex flex-col items-center justify-center text-[10px] text-white font-bold shadow-lg z-20 cursor-grab active:cursor-grabbing" style="left: calc(50% - 28px); top: calc(50% - 28px);">
+                    <div class="absolute w-1.5 h-1.5 bg-blue-300 rounded-full shadow-[0_0_6px_#38bdf8] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+                    <span>YOU</span>
+                    <span id="youCoord" class="text-[8px] text-blue-200 font-mono">(0.0, 0.0)</span>
+                </div>
+
+                <!-- 드래그 가능한 악기 노드 (중심점 기준 정렬) -->
+                <div id="vocalNode" class="absolute flex flex-col items-center cursor-grab active:cursor-grabbing z-20" style="left: calc(50% + 60px); top: calc(50% - 60px);">
+                    <div id="vocalCircle" class="w-[120px] h-[120px] rounded-full border border-blue-400/60 bg-blue-500/10 backdrop-blur-sm flex flex-col items-center justify-center shadow-[0_0_30px_rgba(56,189,248,0.3)] px-2 relative transition-all duration-100" style="margin-left: -50%; margin-top: -50%;">
+                        <div class="absolute w-2 h-2 bg-blue-300 rounded-full shadow-[0_0_8px_#38bdf8] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+                        <span id="nodeTitleText" class="text-sm font-bold text-white truncate max-w-full">Vocal</span>
+                        <span id="vocalCoord" class="text-[9px] text-blue-200 font-mono">(3.0, 3.0)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 하단 대시보드 -->
+        <div class="bg-[#0f172a]/80 backdrop-blur border border-gray-800 rounded-xl p-4 flex items-center justify-between z-10 shadow-lg">
+            <div class="flex items-center space-x-2 text-xs text-gray-400">
+                <span id="footerInstrumentName" class="text-blue-400 font-semibold">🎤 VOCAL</span>
+                <span>·</span>
+                <span class="text-[11px] text-gray-500">drag nodes or input coordinates</span>
+            </div>
+
+            <!-- 수치 모니터링 그룹 -->
+            <div class="flex items-center space-x-8 text-xs font-mono">
+                <div class="flex flex-col items-center">
+                    <span id="statDistance" class="text-gray-200 font-bold text-sm">2.4 m</span>
+                    <span class="text-[9px] text-gray-500 tracking-wider">DISTANCE</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span id="statAzimuth" class="text-purple-400 font-bold text-sm">36.9°</span>
+                    <span class="text-[9px] text-gray-500 tracking-wider">AZIMUTH (PAN)</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span id="statReverb" class="text-gray-200 font-bold text-sm">1.2s</span>
+                    <span class="text-[9px] text-gray-500 tracking-wider">RT60 REVERB</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-blue-400 font-bold text-sm">-3.2 dB</span>
+                    <span class="text-[9px] text-gray-500 tracking-wider">DSP GAIN</span>
+                </div>
+            </div>
+
+            <!-- 우측 위치 성분 정보 -->
+            <div class="flex items-center space-x-4 text-[11px]">
+                <div class="text-right">
+                    <div class="text-gray-500 text-[9px]">F / R</div>
+                    <div id="frontRearVal" class="font-bold text-gray-300">0% / 0%</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-gray-500 text-[9px]">L / R</div>
+                    <div id="leftRightVal" class="font-bold text-blue-400">0% / 0%</div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 인터랙션 동작 스크립트 -->
+    <script>
+        let isPlaying = false;
+        let warningTimeout = null;
+
+        function showWarning(msg) {
+            const toast = document.getElementById('warningToast');
+            document.getElementById('warningText').innerText = msg;
+            toast.classList.remove('hidden');
+            toast.classList.add('flex');
+            if (warningTimeout) clearTimeout(warningTimeout);
+            warningTimeout = setTimeout(() => {
+                toast.classList.remove('flex');
+                toast.classList.add('hidden');
+            }, 2500);
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            const playBtn = document.getElementById('playBtn');
+            const playIcon = document.getElementById('playIcon');
+            const playText = document.getElementById('playText');
+            const statusText = document.getElementById('statusText');
+
+            if (isPlaying) {
+                playBtn.classList.replace('bg-blue-600', 'bg-red-600');
+                playIcon.innerText = '⏹';
+                playText.innerText = 'STOP';
+                statusText.innerText = 'PLAYING';
+                statusText.className = 'text-xs text-green-400 font-mono animate-pulse';
+            } else {
+                playBtn.classList.replace('bg-red-600', 'bg-blue-600');
+                playIcon.innerText = '▶';
+                playText.innerText = 'PLAY';
+                statusText.innerText = 'IDLE';
+                statusText.className = 'text-xs text-gray-500 font-mono';
+            }
+        }
+
+        const stageViewport = document.getElementById('stageViewport');
+        const roomBoundary = document.getElementById('roomBoundary');
+        const youNode = document.getElementById('youNode');
+        const vocalNode = document.getElementById('vocalNode');
+        const vocalCircle = document.getElementById('vocalCircle');
+        const youCoord = document.getElementById('youCoord');
+        const vocalCoord = document.getElementById('vocalCoord');
+        const connectLine = document.getElementById('connectLine');
+        
+        const statDistance = document.getElementById('statDistance');
+        const statAzimuth = document.getElementById('statAzimuth');
+        const statReverb = document.getElementById('statReverb');
+        const stageSizeDisplay = document.getElementById('stageSizeDisplay');
+        
+        const frontRearVal = document.getElementById('frontRearVal');
+        const leftRightVal = document.getElementById('leftRightVal');
+        
+        const instrumentNameInput = document.getElementById('instrumentNameInput');
+        const nodeTitleText = document.getElementById('nodeTitleText');
+        const footerInstrumentName = document.getElementById('footerInstrumentName');
+
+        const vocalXInput = document.getElementById('vocalXInput');
+        const vocalYInput = document.getElementById('vocalYInput');
+
+        const volSlider = document.getElementById('volSlider');
+        const volText = document.getElementById('volText');
+
+        const roomWidthSlider = document.getElementById('roomWidthSlider');
+        const roomWidthVal = document.getElementById('roomWidthVal');
+        const roomDepthSlider = document.getElementById('roomDepthSlider');
+        const roomDepthVal = document.getElementById('roomDepthVal');
+        const reverbSlider = document.getElementById('reverbSlider');
+        const reverbVal = document.getElementById('reverbVal');
+
+        let activeDraggable = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        let youX = 0, youY = 0;
+        let vocalX = 60, vocalY = -60;
+        
+        let roomWidthMeters = 20; 
+        let roomDepthMeters = 10; 
+        let maxXLimit = roomWidthMeters / 2; 
+        let maxYLimit = roomDepthMeters / 2; 
+
+        function updateNodeSize() {
+            const volVal = parseFloat(volSlider.value);
+            const baseSize = 60; 
+            const newSize = baseSize + (volVal / 100) * 120; 
+            
+            vocalCircle.style.width = newSize + 'px';
+            vocalCircle.style.height = newSize + 'px';
+            // 퍼센트 기반 마진(-50%)을 사용하여 크기가 변해도 정확히 노드의 중심점이 좌표와 일치하도록 고정
+            vocalCircle.style.marginLeft = '-50%';
+            vocalCircle.style.marginTop = '-50%';
+        }
+
+        volSlider.addEventListener('input', (e) => {
+            volText.innerText = e.target.value;
+            updateNodeSize();
+            renderScene(false);
+        });
+
+        roomWidthSlider.addEventListener('input', (e) => {
+            roomWidthMeters = parseInt(e.target.value);
+            maxXLimit = roomWidthMeters / 2;
+            roomWidthVal.innerText = roomWidthMeters + 'm';
+            stageSizeDisplay.innerText = `${roomWidthMeters}m (W) × ${roomDepthMeters}m (D)`;
+            
+            updateRoomVisualSize();
+            updateFromInputs();
+        });
+
+        roomDepthSlider.addEventListener('input', (e) => {
+            roomDepthMeters = parseInt(e.target.value);
+            maxYLimit = roomDepthMeters / 2;
+            roomDepthVal.innerText = roomDepthMeters + 'm';
+            stageSizeDisplay.innerText = `${roomWidthMeters}m (W) × ${roomDepthMeters}m (D)`;
+            
+            updateRoomVisualSize();
+            updateFromInputs();
+        });
+
+        reverbSlider.addEventListener('input', (e) => {
+            reverbVal.innerText = e.target.value + '%';
+            renderScene(false);
+        });
+
+        instrumentNameInput.addEventListener('input', (e) => {
+            const val = e.target.value.trim() || 'Instrument';
+            nodeTitleText.innerText = val;
+            footerInstrumentName.innerText = `🎤 ${val.toUpperCase()}`;
+        });
+
+        function updateRoomVisualSize() {
+            const minW = 220, maxW = 650;
+            const minH = 140, maxH = 380;
+            
+            const widthPx = minW + ((roomWidthMeters - 10) / (60 - 10)) * (maxW - minW);
+            const depthPx = minH + ((roomDepthMeters - 5) / (40 - 5)) * (maxH - minH);
+
+            roomBoundary.style.width = widthPx + 'px';
+            roomBoundary.style.height = depthPx + 'px';
+            
+            renderScene(true);
+        }
+
+        function updateFromInputs() {
+            let mX = parseFloat(vocalXInput.value) || 0;
+            let mY = parseFloat(vocalYInput.value) || 0;
+
+            let isExceeded = (Math.abs(mX) > maxXLimit || Math.abs(mY) > maxYLimit);
+            mX = Math.max(-maxXLimit, Math.min(maxXLimit, mX));
+            mY = Math.max(-maxYLimit, Math.min(maxYLimit, mY));
+
+            if (isExceeded) showWarning(`⚠️ 무대 경계선(X:±${maxXLimit}m, Y:±${maxYLimit}m)을 초과할 수 없습니다!`);
+
+            const boundaryRect = roomBoundary.getBoundingClientRect();
+            let pxX = (mX / maxXLimit) * (boundaryRect.width / 2);
+            let pxY = -(mY / maxYLimit) * (boundaryRect.height / 2);
+            vocalX = pxX;
+            vocalY = pxY;
+
+            renderScene(false);
+        }
+
+        vocalXInput.addEventListener('input', updateFromInputs);
+        vocalYInput.addEventListener('input', updateFromInputs);
+
+        function renderScene(updateInputs = true) {
+            const boundaryRect = roomBoundary.getBoundingClientRect();
+            const limitX = boundaryRect.width / 2;
+            const limitY = boundaryRect.height / 2;
+            const stageRect = stageViewport.getBoundingClientRect();
+
+            youX = Math.max(-limitX, Math.min(limitX, youX));
+            youY = Math.max(-limitY, Math.min(limitY, youY));
+            vocalX = Math.max(-limitX, Math.min(limitX, vocalX));
+            vocalY = Math.max(-limitY, Math.min(limitY, vocalY));
+
+            youNode.style.left = `calc(50% - 28px + ${youX}px)`;
+            youNode.style.top = `calc(50% - 28px + ${youY}px)`;
+
+            vocalNode.style.left = `calc(50% + ${vocalX}px)`;
+            vocalNode.style.top = `calc(50% + ${vocalY}px)`;
+
+            let youMeterX = (youX / limitX) * maxXLimit;
+            let youMeterY = -(youY / limitY) * maxYLimit;
+            let vocalMeterX = (vocalX / limitX) * maxXLimit;
+            let vocalMeterY = -(vocalY / limitY) * maxYLimit;
+
+            youCoord.innerText = `(${youMeterX.toFixed(1)}, ${youMeterY.toFixed(1)})`;
+            vocalCoord.innerText = `(${vocalMeterX.toFixed(1)}, ${vocalMeterY.toFixed(1)})`;
+
+            if (updateInputs) {
+                vocalXInput.value = parseFloat(vocalMeterX.toFixed(1));
+                vocalYInput.value = parseFloat(vocalMeterY.toFixed(1));
+            }
+
+            const stageCenterAbsX = stageRect.width / 2;
+            const stageCenterAbsY = stageRect.height / 2;
+
+            const youAbsX = stageCenterAbsX + youX;
+            const youAbsY = stageCenterAbsY + youY;
+            const vocalAbsX = stageCenterAbsX + vocalX;
+            const vocalAbsY = stageCenterAbsY + vocalY;
+
+            connectLine.setAttribute('x1', youAbsX);
+            connectLine.setAttribute('y1', youAbsY);
+            connectLine.setAttribute('x2', vocalAbsX);
+            connectLine.setAttribute('y2', vocalAbsY);
+
+            let meterX = vocalMeterX - youMeterX;
+            let meterY = vocalMeterY - youMeterY;
+            let distanceInMeters = Math.sqrt(meterX * meterX + meterY * meterY);
+            
+            let azimuthRad = Math.atan2(meterX, meterY);
+            let azimuthDeg = azimuthRad * (180 / Math.PI);
+
+            statDistance.innerText = distanceInMeters.toFixed(1) + " m";
+            statAzimuth.innerText = azimuthDeg.toFixed(1) + "°";
+
+            let avgRoomSize = (roomWidthMeters + roomDepthMeters) / 2;
+            let roomFactor = avgRoomSize / 15;
+            let verbSend = parseInt(reverbSlider.value) / 100;
+            let calculatedRT60 = (0.5 + (distanceInMeters * 0.2) * roomFactor) * (0.5 + verbSend);
+            statReverb.innerText = calculatedRT60.toFixed(1) + "s";
+
+            let frontVal = vocalY < 0 ? Math.round((Math.abs(vocalY) / limitY) * 100) : 0;
+            let rearVal = vocalY > 0 ? Math.round((vocalY / limitY) * 100) : 0;
+            frontRearVal.innerText = `${Math.min(100, frontVal)}% / ${Math.min(100, rearVal)}%`;
+
+            let leftVal = vocalX < 0 ? Math.round((Math.abs(vocalX) / limitX) * 100) : 0;
+            let rightVal = vocalX > 0 ? Math.round((vocalX / limitX) * 100) : 0;
+            leftRightVal.innerText = `${Math.min(100, leftVal)}% / ${Math.min(100, rightVal)}%`;
+        }
+
+        youNode.addEventListener('mousedown', (e) => {
+            activeDraggable = 'you';
+            const rect = stageViewport.getBoundingClientRect();
+            dragOffsetX = (e.clientX - rect.left - rect.width / 2) - youX;
+            dragOffsetY = (e.clientY - rect.top - rect.height / 2) - youY;
+            e.stopPropagation();
+        });
+
+        vocalNode.addEventListener('mousedown', (e) => {
+            activeDraggable = 'vocal';
+            const rect = stageViewport.getBoundingClientRect();
+            dragOffsetX = (e.clientX - rect.left - rect.width / 2) - vocalX;
+            dragOffsetY = (e.clientY - rect.top - rect.height / 2) - vocalY;
+            e.stopPropagation();
+        });
+
+        window.addEventListener('mouseup', () => { activeDraggable = null; });
+
+        stageViewport.addEventListener('mousemove', (e) => {
+            if (!activeDraggable) return;
+            const boundaryRect = roomBoundary.getBoundingClientRect();
+            const stageRect = stageViewport.getBoundingClientRect();
+            const limitX = boundaryRect.width / 2;
+            const limitY = boundaryRect.height / 2;
+
+            let targetX = (e.clientX - stageRect.left - stageRect.width / 2) - dragOffsetX;
+            let targetY = (e.clientY - stageRect.top - stageRect.height / 2) - dragOffsetY;
+
+            if (activeDraggable === 'you') {
+                youX = Math.max(-limitX, Math.min(limitX, targetX));
+                youY = Math.max(-limitY, Math.min(limitY, targetY));
+            } else if (activeDraggable === 'vocal') {
+                vocalX = Math.max(-limitX, Math.min(limitX, targetX));
+                vocalY = Math.max(-limitY, Math.min(limitY, targetY));
+            }
+            renderScene(true);
+        });
+
+        window.addEventListener('load', () => {
+            updateRoomVisualSize();
+            updateNodeSize();
+            renderScene(true);
+        });
+        updateRoomVisualSize();
+        updateNodeSize();
+    </script>
+</body>
+</html>
